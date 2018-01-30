@@ -18,17 +18,21 @@ def gen_step(mrcm, old):
         for x in range(len(old)):
             for y in range(len(old)):
                 if old[x,y] == 1: #draw in new
-                    newcoord = np.dot(transform[0], np.array([[x],[y]])) + transform[1]*len(old)
-                    newcoord = list((np.array(newcoord, int) % len(old)).flat)
-                    new[newcoord[0],newcoord[1]] = 1
+                    newcoord = np.dot(transform[0], np.array([[x],[y]])) + transform[1]*len(old) #tranform
+                    newcoord = list((np.array(newcoord, int) % len(old)).flat) #cast to int and mod by the size
+                    new[newcoord[0],newcoord[1]] = 1 #draw
     return new
 
 def gen_image(mrcm, base):
     old = np.copy(base)
     new = gen_step(mrcm, old)
     steps = 1
-    while (not (old == new).all()) and steps < 100:
+    while (not (old == new).all()) and steps < 100: #do a bunch of gen_step
         old = new
         new = gen_step(mrcm, old)
         steps += 1
     return new
+
+def fitness(mrcm, target):
+    image = gen_image(mrcm, np.ones(target.shape))
+    return sum((image*target - image*(1-target)).flat) / sum(target.flat) #1 point per correct pixel, -1 points per incorrect pixel; divide by total to get proportion correct
