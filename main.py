@@ -12,10 +12,6 @@ class MRCM:
         self.transforms = transforms
         #each transform is 6 parameters in a 2-element list: [2x2 np array for linear transform, 2x1 np array for offset]
 
-def fastdot(matrix, coord):
-    return [matrix[0,0]*coord[0]+matrix[0,1]*coord[1],
-            matrix[1,0]*coord[0]+matrix[1,1]*coord[1]]
-
 def gen_step(mrcm, old):
     new = np.zeros(old.shape, int) #blank canvas
     size = len(old)
@@ -41,7 +37,7 @@ def gen_matrix(mrcm, base):
 def gen_image(mrcm, base, filename):
     matrix = gen_matrix(mrcm, base)
     im = Image.new('1', tuple(matrix.shape)) #white canvas
-    im.putdata(list((1-matrix).flat))
+    im.putdata(list((1-matrix).flat)) #draw everything
     im.save(filename)
 
 def fitness(mrcm, target):
@@ -53,3 +49,8 @@ def random_mrcm(n):
     for _ in range(n):
         transforms.append([np.random.rand(2,2), np.random.rand(1,2)])
     return MRCM(transforms)
+
+def loadtarget(filename):
+    im = Image.open(filename)
+    raw = list(im.getdata(0))
+    return 1 - np.array(raw, int).reshape(im.size) / 255
