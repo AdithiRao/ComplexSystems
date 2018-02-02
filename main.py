@@ -79,3 +79,56 @@ def loadtarget(filename):
     im = Image.open(filename)
     raw = list(im.getdata(0))
     return 1 - np.array(raw, int).reshape(im.size) / 255
+
+
+
+
+
+
+
+
+
+
+
+x = [1,3,5] #use the actual MRCMs here
+y = [2,4,6] #use the actual MRCMs here
+numbers = []
+length = len(x)
+listy = []
+
+def pick:
+    MRCM_list = [1,2,3,4,3,2,1]
+    for k in range(len(MRCM_list)):
+        tot_sum = sum(MRCM_list[k:])
+        prob = int(MRCM_list[k])/float(tot_sum)    
+        if random.random() <= prob:
+            fitness1 = MRCM_list[k]
+            index1 = k
+            MRCM_list.pop(k)
+            break
+
+    print(fitness1)
+    print('index: ', index1)
+
+    for k in range(len(MRCM_list)):
+        tot_sum = sum(MRCM_list[k:])
+        prob = MRCM_list[k] / float(tot_sum)
+
+        if random.random() <= prob:
+            fitness2 = MRCM_list[k]
+            index2 = k
+            MRCM_list.pop(k)
+            break
+
+    print(fitness2)
+    print('index: ', index2)
+
+
+
+def crossover:
+    for j in range(length):
+        numbers.append([x[j],y[j]])
+    for i in range(len(numbers)):
+        listy.append(random.choice(numbers[i]))
+    print(listy)
+      
