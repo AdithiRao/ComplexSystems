@@ -2,11 +2,10 @@ import random
 import threading
 from PIL import Image
 import numpy as np
+import copy
 
 mutationrate = .05
-populationsize = 100
-bitmapx = 256
-bitmapy = 256
+populationsize = 20
 threadnum = 10
 
 class MRCM:
@@ -14,13 +13,17 @@ class MRCM:
         self.transforms = transforms
         #each transform is 6 parameters in a 2-element list: [2x2 np array for linear transform, 2x1 np array for offset]
     def __hash__(self):
-        return hash(tuple(self.transforms))
+        return hash(str(self))
     def __add__(self, other):
         return MRCM([[a[0]+b[0], a[1]+b[1]] for a in self.transforms for b in other.transforms])
     def __mul__(self, n):
         return MRCM([[a[0]*n, a[1]*n] for a in self.transforms])
     def __repr__(self):
         return str(self.transforms)
+    def __str__(self):
+        return str(self.transforms)
+    def __eq__(self, other):
+        return hash(self) == hash(other)
 
 def gen_sub(transform, size, old, ready, index, total):
     global INTERNAL
@@ -59,76 +62,52 @@ def gen_matrix(mrcm, base):
         steps += 1
     return new
 
-def gen_image(mrcm, base, filename):
-    matrix = gen_matrix(mrcm, base)
+def gen_image(matrix, filename):
+    #matrix = gen_matrix(mrcm, base)
     im = Image.new('1', tuple(matrix.shape)) #white canvas
     im.putdata(list((1-matrix).flat)) #draw everything
     im.save(filename)
 
-def fitness(mrcm, target):
-    image = gen_matrix(mrcm, np.ones(target.shape))
-    return sum((image*target + (1-image)*(1-target) - image*(1-target) - (1-image)*target).flat) / len(target.flat) #1 point per correct pixel, -1 points per incorrect pixel; divide by total to get proportion correct
+def fitness(mrcm, targetm):
+    image = gen_matrix(mrcm, np.ones(targetm.shape))
+    truths = 1-np.bitwise_xor(image, targetm)
+    return sum(truths.flat) / len(targetm.flat) #1 point per correct pixel, divide by total to get proportion correct
 
 def random_mrcm(n):
     transforms = []
     for _ in range(n):
-        transforms.append([1-2*np.random.rand(2,2), 1-2*np.random.rand(1,2)])
+        transforms.append([1-2*np.random.rand(2,2), 1-2*np.random.rand(2,1)])
     return MRCM(transforms)
 
 def loadtarget(filename):
     im = Image.open(filename)
     raw = list(im.getdata(0))
-    return 1 - np.array(raw, int).reshape(im.size) / 255
+    return 1 - np.array(raw, int).reshape(im.size) // 255
 
+def pick(mrcmdict, n):
+    v = np.array(list(mrcmdict.values()))
+    shifted = v - min(v)
+    probs = shifted / sum(shifted)
+    return np.random.choice(list(mrcmdict.keys()), n, p=probs)
 
+def crossover(mrcms):
+    nex = MRCM([])
+    for t in range(len(mrcms[0].transforms)):
+        transform = []
+        flattened = []
+        for m in mrcms:
+            flattened.append(list(m.transforms[t][0].flat) + list(m.transforms[t][1].flat))
+        for i in range(6):
+            choice = random.choice(flattened)
+            transform.append(choice[i] + (random.random()-.5)*2*mutationrate)
+        nex.transforms.append([np.array(transform[:4]).reshape([2,2]), np.array(transform[4:]).reshape([2,1])])
+    return nex
 
-
-
-
-
-
-
-
-
-x = [1,3,5] #use the actual MRCMs here
-y = [2,4,6] #use the actual MRCMs here
-numbers = []
-length = len(x)
-listy = []
-
-def pick:
-    MRCM_list = [1,2,3,4,3,2,1]
-    for k in range(len(MRCM_list)):
-        tot_sum = sum(MRCM_list[k:])
-        prob = int(MRCM_list[k])/float(tot_sum)    
-        if random.random() <= prob:
-            fitness1 = MRCM_list[k]
-            index1 = k
-            MRCM_list.pop(k)
-            break
-
-    print(fitness1)
-    print('index: ', index1)
-
-    for k in range(len(MRCM_list)):
-        tot_sum = sum(MRCM_list[k:])
-        prob = MRCM_list[k] / float(tot_sum)
-
-        if random.random() <= prob:
-            fitness2 = MRCM_list[k]
-            index2 = k
-            MRCM_list.pop(k)
-            break
-
-    print(fitness2)
-    print('index: ', index2)
-
-
-
-def crossover:
-    for j in range(length):
-        numbers.append([x[j],y[j]])
-    for i in range(len(numbers)):
-        listy.append(random.choice(numbers[i]))
-    print(listy)
-      
+def nexgen(mrcmdict):
+    gen = []
+    k = list(mrcmdict.keys())
+    gen.append(max(k, key=lambda x: mrcmdict[x]))
+    for _ in range(populationsize - 2):
+        gen.append(crossover(pick(mrcmdict, 2)))
+    gen.append(random_mrcm(len(gen[0].transforms)))
+    return gen
