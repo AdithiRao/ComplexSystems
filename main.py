@@ -111,3 +111,27 @@ def nexgen(mrcmdict):
         gen.append(crossover(pick(mrcmdict, 2)))
     gen.append(random_mrcm(len(gen[0].transforms)))
     return gen
+
+bestgens = {}
+L = []
+t = loadtarget('IMAGENAME.png')
+for _ in range(populationsize):
+    L.append(random_mrcm(3))
+i = 0
+while True:
+    i += 1
+    D = {}
+    j = 0
+    bestf = 0
+    bestM = None
+    for M in L:
+        j += 1
+        f = fitness(M, t)
+        D[M] = copy.copy(f)
+        if f > bestf:
+            bestf = f
+            bestM = M
+    bestgens[i] = copy.deepcopy(bestM)
+    gen_image(gen_matrix(bestM, np.ones(t.shape)), 'gen' + str(i) + '.png')
+    L = nexgen(D)
+    print(i, max(D.values()), sum(D.values())/len(D.values()))
