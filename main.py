@@ -87,13 +87,13 @@ def loadtarget(filename):
     redA = 255 - np.array(red, int).reshape(im.size) #convert to np array
     blueA = 255 - np.array(blue, int).reshape(im.size)
     greenA = 255 - np.array(green, int).reshape(im.size)
-    if len(im.getbands()) > 3:
+    if len(im.getbands()) > 2:
         alpha = list(im.getdata(3)) #alpha
         alphaA = np.array(alpha, int).reshape(im.size)
     else:
         alphaA = 128
     #calc average darkness per pixel, choose >=average for image, factor in transparency
-    imaverage = sum(((redA + blueA + greenA) // 3).flat) // (im.size[0]*im.size[1])
+    imaverage = sum(((redA + blueA + greenA) // 3 * alphaA).flat) // (im.size[0]*im.size[1])
     return (redA + blueA + greenA) // (3*imaverage) * (alphaA // 128)
 
 def pick(mrcmdict, n):
