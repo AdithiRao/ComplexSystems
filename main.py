@@ -81,8 +81,20 @@ def random_mrcm(n):
 
 def loadtarget(filename):
     im = Image.open(filename)
-    raw = list(im.getdata(0))
-    return 1 - np.array(raw, int).reshape(im.size) // 255
+    red = list(im.getdata(0)) #red channel
+    blue = list(im.getdata(1)) #blue
+    green = list(im.getdata(2)) #green
+    redA = 255 - np.array(red, int).reshape(im.size) #convert to np array
+    blueA = 255 - np.array(blue, int).reshape(im.size)
+    greenA = 255 - np.array(green, int).reshape(im.size)
+    if len(im.getbands()) > 3:
+        alpha = list(im.getdata(3)) #alpha
+        alphaA = np.array(alpha, int).reshape(im.size)
+    else:
+        alphaA = 128
+    #calc average darkness per pixel, choose >=average for image, factor in transparency
+    imaverage = sum(((redA + blueA + greenA) // 3).flat) // (im.size[0]*im.size[1])
+    return (redA + blueA + greenA) // (3*imaverage) * (alphaA // 128)
 
 def pick(mrcmdict, n):
     v = np.array(list(mrcmdict.values()))
