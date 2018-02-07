@@ -70,22 +70,28 @@ def gen_image(matrix, filename):
 
 def dist(point, m): #smallest pixel distance from a black pixel
     r = 0
-    best = m.shape[0]*(2**.5)
-    while r < best: #check along a square border
-        for x in [point[0] - r, point[0] + r]: # =
-            if x >= 0 and x < m.shape[0]:
-                for y in range(point[1] - r, point[1] + r + 1):
-                    if y >= 0 and y < m.shape[1]:
-                        if m[x,y] == 1 and ((x-point[0])**2 + (y-point[1])**2)**.5 < best:
-                            best = ((x-point[0])**2 + (y-point[1])**2)**.5
-        for y in [point[1] - r, point[1] + r]: # ||
-            if y >= 0 and y < m.shape[1]:
-                for x in range(point[0] - r, point[0] + r + 1):
-                    if x >= 0 and x < m.shape[0]:
-                        if m[x,y] == 1 and ((x-point[0])**2 + (y-point[1])**2)**.5 < best:
-                            best = ((x-point[0])**2 + (y-point[1])**2)**.5
+    bestsquare = 2*m.shape[0]**2
+    while r < bestsquare**.5: #check along a square border
+        coords = []
+        for i in range(r): #square border
+            coords.append((point[0]+i, point[1]+r))
+            coords.append((point[0]-i, point[1]+r))
+            coords.append((point[0]+i, point[1]-r))
+            coords.append((point[0]-i, point[1]-r))
+            coords.append((point[0]+r, point[1]+i))
+            coords.append((point[0]+r, point[1]-i))
+            coords.append((point[0]-r, point[1]+i))
+            coords.append((point[0]-r, point[1]-i))
+        for coord in coords:
+            try:
+                if m[coord] == 1:
+                    if ((coord[0]-point[0])**2 + (coord[1]-point[1])**2) < bestsquare:
+                        bestsquare = (coord[0]-point[0])**2 + (coord[1]-point[1])**2
+                    break
+            except: #the coord is out of bounds
+                pass
         r += 1
-    return best
+    return bestsquare**.5
 
 def partialfitness(m1, m2):
     if sum(m1.flat) == 0:
@@ -98,9 +104,18 @@ def partialfitness(m1, m2):
                 fit += 1 - dist([x,y], m2) / scale
     return fit / sum(m1.flat)
 
-def fitness(mrcm, targetm):
+def precompute(m): #precomputed distances
+    pre = np.zeros(m.shape)
+    for x in range(pre.shape[0]):
+        for y in range(pre.shape[1]):
+            pre[x,y] = dist([x,y], m)
+    return pre
+
+def fitness(mrcm, targetm, tpre):
     image = gen_matrix(mrcm, np.ones(targetm.shape))
-    return min(partialfitness(image, targetm), partialfitness(targetm, image))
+    fit1 = partialfitness(image, targetm)
+    fit2 = sum((tpre*image).flat) / sum(targetm.flat)
+    return min(fit1, fit2)
 
 def random_mrcm(n):
     transforms = []
@@ -153,9 +168,11 @@ def main(filename):
     t = loadtarget(filename)
     gen_image(t, 'real' + filename)
     for _ in range(populationsize):
-        L.append(random_mrcm(3))
+        L.append(random_mrcm(5))
     i = 0
     prev = 0
+    tpre = precompute(t)
+    print('entering loop')
     while True:
         i += 1
         D = {}
@@ -164,9 +181,9 @@ def main(filename):
         bestM = None
         for M in L:
             j += 1
-            f = fitness(M, t)
-            D[M] = copy.copy(f)
+            f = fitness(M, t, tpre)
             print('', j, f)
+            D[M] = copy.copy(f)
             if f > bestf:
                 bestf = f
                 bestM = M
