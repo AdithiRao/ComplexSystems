@@ -68,10 +68,39 @@ def gen_image(matrix, filename):
     im.putdata(list((1-matrix).flat)) #draw everything
     im.save(filename)
 
+def dist(point, m): #smallest pixel distance from a black pixel
+    r = 0
+    best = m.shape[0]*(2**.5)
+    while r < best: #check along a square border
+        for x in [point[0] - r, point[0] + r]: # =
+            if x >= 0 and x < m.shape[0]:
+                for y in range(point[1] - r, point[1] + r + 1):
+                    if y >= 0 and y < m.shape[1]:
+                        if m[x,y] == 1 and ((x-point[0])**2 + (y-point[1])**2)**.5 < best:
+                            best = ((x-point[0])**2 + (y-point[1])**2)**.5
+        for y in [point[1] - r, point[1] + r]: # ||
+            if y >= 0 and y < m.shape[1]:
+                for x in range(point[0] - r, point[0] + r + 1):
+                    if x >= 0 and x < m.shape[0]:
+                        if m[x,y] == 1 and ((x-point[0])**2 + (y-point[1])**2)**.5 < best:
+                            best = ((x-point[0])**2 + (y-point[1])**2)**.5
+        r += 1
+    return best
+
+def partialfitness(m1, m2):
+    if sum(m1.flat) == 0:
+        return 0
+    fit = 0
+    scale = m1.shape[0]*(2**.5)
+    for x in range(m1.shape[0]):
+        for y in range(m1.shape[1]):
+            if m1[x,y] == 1:
+                fit += 1 - dist([x,y], m2) / scale
+    return fit / sum(m1.flat)
+
 def fitness(mrcm, targetm):
     image = gen_matrix(mrcm, np.ones(targetm.shape))
-    truths = 1-np.bitwise_xor(image, targetm)
-    return sum(truths.flat) / len(targetm.flat) #1 point per correct pixel, divide by total to get proportion correct
+    return min(partialfitness(image, targetm), partialfitness(targetm, image))
 
 def random_mrcm(n):
     transforms = []
@@ -87,14 +116,8 @@ def loadtarget(filename):
     redA = 255 - np.array(red, int).reshape(im.size) #convert to np array
     blueA = 255 - np.array(blue, int).reshape(im.size)
     greenA = 255 - np.array(green, int).reshape(im.size)
-    if len(im.getbands()) > 2:
-        alpha = list(im.getdata(3)) #alpha
-        alphaA = np.array(alpha, int).reshape(im.size)
-    else:
-        alphaA = 128
-    #calc average darkness per pixel, choose >=average for image, factor in transparency
-    imaverage = sum(((redA + blueA + greenA) // 3 * alphaA).flat) // (im.size[0]*im.size[1])
-    return (redA + blueA + greenA) // (3*imaverage) * (alphaA // 128)
+    imaverage = sum(((redA + blueA + greenA) // 3).flat) // (im.size[0]*im.size[1])
+    return (redA + blueA + greenA) // (3*imaverage)
 
 def pick(mrcmdict, n):
     v = np.array(list(mrcmdict.values()))
@@ -124,26 +147,32 @@ def nexgen(mrcmdict):
     gen.append(random_mrcm(len(gen[0].transforms)))
     return gen
 
-bestgens = {}
-L = []
-t = loadtarget('IMAGENAME.png')
-for _ in range(populationsize):
-    L.append(random_mrcm(3))
-i = 0
-while True:
-    i += 1
-    D = {}
-    j = 0
-    bestf = 0
-    bestM = None
-    for M in L:
-        j += 1
-        f = fitness(M, t)
-        D[M] = copy.copy(f)
-        if f > bestf:
-            bestf = f
-            bestM = M
-    bestgens[i] = copy.deepcopy(bestM)
-    gen_image(gen_matrix(bestM, np.ones(t.shape)), 'gen' + str(i) + '.png')
-    L = nexgen(D)
-    print(i, max(D.values()), sum(D.values())/len(D.values()))
+def main(filename):
+    bestgens = {}
+    L = []
+    t = loadtarget(filename)
+    gen_image(t, 'real' + filename)
+    for _ in range(populationsize):
+        L.append(random_mrcm(3))
+    i = 0
+    prev = 0
+    while True:
+        i += 1
+        D = {}
+        j = 0
+        bestf = 0
+        bestM = None
+        for M in L:
+            j += 1
+            f = fitness(M, t)
+            D[M] = copy.copy(f)
+            print('', j, f)
+            if f > bestf:
+                bestf = f
+                bestM = M
+        bestgens[i] = copy.deepcopy(bestM)
+        if bestf > prev:
+            prev = bestf
+            gen_image(gen_matrix(bestM, np.ones(t.shape)), 'gen' + str(i) + '.png')
+        L = nexgen(D)
+        print(i, max(D.values()), sum(D.values())/len(D.values()))
